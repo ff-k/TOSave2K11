@@ -9,4 +9,6 @@ Actually, all that is needed to fix that glitch is to overwrite few bytes of dat
 
 [Dear ImGui](https://github.com/ocornut/imgui) is used for graphical user interface. Note that non-ASCII characters in file paths might not be rendered properly but it is only a rendering problem (i.e. your save files will be fixed as expected). ImGui is able to handle these characters but I did not want to waste time on that.
 
+If you want to build it yourself instead of using the provided release, run build.bat in VS Native Tools Command Prompt.
+
 Have fun
