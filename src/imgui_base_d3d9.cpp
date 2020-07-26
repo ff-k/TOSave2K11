@@ -1,4 +1,5 @@
 #include <imgui.h>
+#include <imgui_internal.h>
 #include <imgui_impl_dx9.h>
 #include <imgui_impl_win32.h>
 
@@ -7,6 +8,8 @@
 
 #include <dinput.h>
 #include <tchar.h>
+
+#include "unicode_win32.h"
 
 static LPDIRECT3D9              g_pD3D = NULL;
 static LPDIRECT3DDEVICE9        g_pd3dDevice = NULL;
@@ -76,14 +79,80 @@ LRESULT WINAPI WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
 }
 
 typedef struct {
-    HWND windowHandle;
-    bool quitRequested;
+    void *userData;
+    HWND  windowHandle;
+    bool  quitRequested;
 } frame_params;
 
 // NOTE(furkan): Note that this won't work if multiple 
 //               compilation units are being used. Change 
 //               "static" to "extern" in that case.
 static void FrameUpdate(frame_params *frameParams);
+
+static ImWchar *
+GetLocalGlyphRanges(){
+    ImWchar *ranges = 0;
+    
+    LOCALESIGNATURE localSig;
+    if(GetLocaleInfoEx(LOCALE_NAME_USER_DEFAULT, LOCALE_FONTSIGNATURE, 
+                       (LPWSTR) &localSig, sizeof(localSig)/sizeof(WCHAR))){
+        
+        int reqRanges = 0;
+        reqRanges += NumberOfBitsSet(localSig.lsUsb[0]);
+        reqRanges += NumberOfBitsSet(localSig.lsUsb[1]);
+        reqRanges += NumberOfBitsSet(localSig.lsUsb[2]);
+        reqRanges += NumberOfBitsSet(localSig.lsUsb[3] & 0x07FFFFFF);
+        
+        ranges = (ImWchar *) malloc(sizeof(ImWchar)*(reqRanges*2 + 1));
+        if(ranges){
+            int rangeIdx = 0;
+            int tripletCount = StaticArraySize(unicodeSubsetBitfields);
+            for(int i=0; i<tripletCount; i++){
+                u32 bit = unicodeSubsetBitfields[i].Val[0];
+                u32 rs  = unicodeSubsetBitfields[i].Val[1];
+                u32 re  = unicodeSubsetBitfields[i].Val[2];
+                
+                u32  shift = 0;
+                u32 *field      = 0;
+                
+                if(bit < 32){
+                    shift = bit;
+                    field = (u32 *)(localSig.lsUsb + 0);
+                    
+                } else if(bit < 64){
+                    shift = bit-32;
+                    field = (u32 *)(localSig.lsUsb + 1);
+                    
+                } else if(bit < 96){
+                    shift = bit-64;
+                    field = (u32 *)(localSig.lsUsb + 2);
+                    
+                } else if(bit < 123){
+                    shift = bit-96;
+                    field = (u32 *)(localSig.lsUsb + 3);
+                }
+                
+                if(field){
+                    if((*field) & (0x1 << shift)){
+                        if(rs == 0){
+                            // NOTE(furkan): Modify the beginning 
+                            // of Basic Latin. Otherwise, ImGui 
+                            // will take is as the end of the array
+                            rs = 0x0020;
+                        }
+                        
+                        ranges[rangeIdx++] = rs;
+                        ranges[rangeIdx++] = re;
+                    }
+                }
+            }
+            
+            ranges[rangeIdx] = 0;
+        }
+    }
+    
+    return ranges;
+}
 
 int CALLBACK WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, LPSTR CmdLine, int ShowCmd) {
     WNDCLASSEXA windowClass = { 0 };
@@ -93,12 +162,15 @@ int CALLBACK WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, LPSTR CmdLine, 
     windowClass.hInstance = GetModuleHandle(0);
     windowClass.lpszClassName = "TOSave2K11";
     windowClass.hbrBackground = (HBRUSH) GetStockObject(BLACK_BRUSH);
-    
-    int windowWidth  = 960;
-    int windowHeight = 480;
+
+    const int defaultWindowW = 770;
+    const int defaultWindowH = 280;
     
     int monitorW = GetSystemMetrics(SM_CXSCREEN);
     int monitorH = GetSystemMetrics(SM_CYSCREEN);
+    
+    int windowWidth  = defaultWindowW < monitorW ? defaultWindowW : monitorW;
+    int windowHeight = defaultWindowH < monitorH ? defaultWindowH : monitorH;
         
     if (RegisterClassExA(&windowClass)){
         HWND windowHandle = CreateWindowEx(0, 
@@ -120,13 +192,23 @@ int CALLBACK WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, LPSTR CmdLine, 
                 ImGuiIO& io = ImGui::GetIO(); (void)io;
                 io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
                 
+                char *FontPath = "c:\\Windows\\Fonts\\ArialUni.ttf";
+                if(GetFileAttributesA(FontPath) != INVALID_FILE_ATTRIBUTES){
+                    ImWchar *LGR = GetLocalGlyphRanges();
+                    if(LGR){
+                        io.Fonts->AddFontFromFileTTF(FontPath, 16.0f, 0, LGR);
+                        mfree((void **)&LGR);
+                    }
+                }
+                
                 ImGui::StyleColorsDark();
                 
                 ImGui_ImplWin32_Init(windowHandle);
                 ImGui_ImplDX9_Init(g_pd3dDevice);
                 
                 frame_params frameParams;
-                frameParams.windowHandle = windowHandle;
+                frameParams.userData      = 0;
+                frameParams.windowHandle  = windowHandle;
                 frameParams.quitRequested = false;
                 
                 MSG message;

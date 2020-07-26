@@ -1,6 +1,11 @@
 # Custom
 data/*
 
+# VS
+*.sdf
+*.sln
+.vs
+
 # ImGui
 *.ini
 

@@ -25,6 +25,13 @@ void crc32b_init() {
 }
 
 unsigned int crc32b_table_reflect( int nLength, const unsigned char *pData ) {
+    
+    static bool first = true;
+    if(first){
+        crc32b_init();
+    }
+    first = false;
+    
     unsigned int crc = -1 ; // Optimization: crc = CRC32_INIT;
     
     while( nLength-- > 0 ){
