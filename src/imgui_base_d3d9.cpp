@@ -189,7 +189,16 @@ int CALLBACK WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, LPSTR CmdLine, 
                 ImGuiIO& io = ImGui::GetIO(); (void)io;
                 io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
                 
-                char *FontPath = "c:\\Windows\\Fonts\\ArialUni.ttf";
+                char FontPath[MAX_PATH];
+                strncpy(FontPath, "c:\\Windows\\Fonts\\ArialUni.ttf", MAX_PATH);
+                
+                WIN32_FIND_DATAA FindData;
+                HANDLE TTFHandle = FindFirstFileEx("*.ttf", FindExInfoBasic, &FindData, FindExSearchNameMatch, 0, 0);
+                if (TTFHandle != INVALID_HANDLE_VALUE){
+                    strncpy(FontPath, FindData.cFileName, MAX_PATH);
+                    FindClose(TTFHandle);
+                }
+                
                 if(GetFileAttributesA(FontPath) != INVALID_FILE_ATTRIBUTES){
                     ImWchar *LGR = GetLocalGlyphRanges();
                     if(LGR){
