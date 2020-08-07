@@ -97,6 +97,9 @@ GetLocalGlyphRanges(){
     if(GetLocaleInfoEx(LOCALE_NAME_USER_DEFAULT, LOCALE_FONTSIGNATURE, 
                        (LPWSTR) &localSig, sizeof(localSig)/sizeof(WCHAR))){
         
+        // NOTE(furkan): Force Basic Latin to be present
+        localSig.lsUsb[0] |= 0x01;
+        
         int reqRanges = 0;
         reqRanges += NumberOfBitsSet(localSig.lsUsb[0]);
         reqRanges += NumberOfBitsSet(localSig.lsUsb[1]);
@@ -197,6 +200,7 @@ int CALLBACK WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, LPSTR CmdLine, 
                     ImWchar *LGR = GetLocalGlyphRanges();
                     if(LGR){
                         io.Fonts->AddFontFromFileTTF(FontPath, 16.0f, 0, LGR);
+                        io.Fonts->Build();
                         mfree((void **)&LGR);
                     }
                 }
