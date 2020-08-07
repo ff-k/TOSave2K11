@@ -100,16 +100,10 @@ GetLocalGlyphRanges(){
         // NOTE(furkan): Force Basic Latin to be present
         localSig.lsUsb[0] |= 0x01;
         
-        int reqRanges = 0;
-        reqRanges += NumberOfBitsSet(localSig.lsUsb[0]);
-        reqRanges += NumberOfBitsSet(localSig.lsUsb[1]);
-        reqRanges += NumberOfBitsSet(localSig.lsUsb[2]);
-        reqRanges += NumberOfBitsSet(localSig.lsUsb[3] & 0x07FFFFFF);
-        
-        ranges = (ImWchar *) malloc(sizeof(ImWchar)*(reqRanges*2 + 1));
+        int tripletCount = StaticArraySize(unicodeSubsetBitfields);
+        ranges = (ImWchar *) malloc(sizeof(ImWchar)*(tripletCount*2 + 1));
         if(ranges){
             int rangeIdx = 0;
-            int tripletCount = StaticArraySize(unicodeSubsetBitfields);
             for(int i=0; i<tripletCount; i++){
                 u32 bit = unicodeSubsetBitfields[i].Val[0];
                 u32 rs  = unicodeSubsetBitfields[i].Val[1];
